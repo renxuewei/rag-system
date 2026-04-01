@@ -1,0 +1,128 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: milvus
+  namespace: rag-system
+  labels:
+    app: milvus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: milvus
+  template:
+    metadata:
+      labels:
+        app: milvus
+    spec:
+      containers:
+      - name: milvus
+        image: milvusdb/milvus:v2.3.5
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 19530
+          name: grpc
+        - containerPort: 9091
+          name: metrics
+        command: ["milvus", "run", "standalone"]
+        env:
+        # Embedded etcd configuration
+        - name: ETCD_USE_EMBED
+          value: "true"
+        - name: ETCD_DATA_DIR
+          value: "/var/lib/milvus/etcd"
+
+        # MinIO configuration (using your existing MinIO)
+        # MinIO configuration (using credentials from rag-system/rag-secrets)
+        - name: MINIO_ADDRESS
+          value: "minio-service:9000"
+        - name: MINIO_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: rag-secrets
+              key: MINIO_ACCESS_KEY
+        - name: MINIO_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: rag-secrets
+              key: MINIO_SECRET_KEY
+        - name: MINIO_USE_SSL
+          value: "false"
+        - name: MINIO_BUCKET_NAME
+          value: "milvus-bucket"
+        
+        # Metadata storage configuration (embedded etcd requires no external configuration)
+        - name: COMMON_STORAGE_TYPE
+          value: "remote"
+
+        # Logging configuration
+        - name: MILVUS_LOG_LEVEL
+          value: "info"
+
+        # Performance optimization
+        - name: COMMON_GRACEFUL_SHUTDOWN_TIMEOUT
+          value: "30"
+        - name: DATA_NODE_GC_INTERVAL
+          value: "3600"
+
+        # Resource configuration
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+          limits:
+            cpu: "2000m"
+            memory: "4Gi"
+
+        # Health check
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 9091
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 9091
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        volumeMounts:
+        - name: milvus-data
+          mountPath: /var/lib/milvus
+        - name: milvus-logs
+          mountPath: /var/log/milvus
+      
+      volumes:
+      - name: milvus-data
+        persistentVolumeClaim:
+          claimName: milvus-pvc
+      - name: milvus-logs
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: milvus-service
+  namespace: rag-system
+  labels:
+    app: milvus
+spec:
+  selector:
+    app: milvus
+  ports:
+  - port: 19530
+    targetPort: 19530
+    name: grpc
+    protocol: TCP
+  - port: 9091
+    targetPort: 9091
+    name: metrics
+    protocol: TCP
+  type: ClusterIP

@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rag-config
+  namespace: rag-system
+data:
+  # Database configuration
+  POSTGRES_HOST: "postgres-service"
+  POSTGRES_PORT: "5432"
+  POSTGRES_USER: "rag_user"
+  POSTGRES_DB: "rag_system"
+
+  # Redis configuration
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
+
+  # Milvus configuration
+  MILVUS_HOST: "milvus-service"
+  MILVUS_PORT: "19530"
+
+  # MinIO configuration
+  MINIO_ENDPOINT: "minio-service:9000"
+  MINIO_BUCKET: "rag-documents"
+
+  # Retrieval configuration
+  CHUNK_SIZE: "500"
+  CHUNK_OVERLAP: "50"
+  TOP_K: "5"
+
+  # Cache configuration
+  CACHE_TTL: "3600"
+  CACHE_WARMUP_ENABLED: "false"
+
+  # JWT configuration
+  JWT_ALGORITHM: "HS256"
+  JWT_EXPIRE_MINUTES: "60"

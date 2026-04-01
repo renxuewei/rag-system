@@ -1,0 +1,37 @@
+[tool.poetry]
+name = "rag-for-enterprise"
+version = "1.0.0"
+description = "Enterprise RAG Knowledge Base System"
+authors = ["KEVIN <your.email@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.104.1"
+uvicorn = "^0.24.0"
+pydantic = "^2.5.0"
+langchain = "^0.0.352"
+langchain-openai = "^0.0.6"
+langchain-community = "^0.0.12"
+chromadb = "^0.4.22"
+redis = "^5.0.0"
+sqlalchemy = "^2.0.23"
+psycopg2-binary = "^2.9.9"
+python-dotenv = "^1.0.0"
+minio = "^7.1.17"
+pymilvus = "^2.3.5"
+rank-bm25 = "^0.2.2"
+bge-m3 = "^0.1.0"
+bge-reranker = "^0.1.0"
+pypdf = "^4.2.0"
+python-docx = "^0.3.0"
+langchain-text-splitters = "^0.0.1"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.3"
+pytest-asyncio = "^0.23.2"
+black = "^23.12.0"
+flake8 = "^6.1.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry-core"

@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio
+  namespace: rag-system
+  labels:
+    app: minio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minio
+  template:
+    metadata:
+      labels:
+        app: minio
+    spec:
+      containers:
+      - name: minio
+        image: minio/minio:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 9000
+          name: api
+        - containerPort: 9001
+          name: console
+        env:
+        - name: MINIO_ROOT_USER
+          valueFrom:
+            secretKeyRef:
+              name: rag-secrets
+              key: MINIO_ACCESS_KEY
+        - name: MINIO_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: rag-secrets
+              key: MINIO_SECRET_KEY
+        command:
+        - minio
+        - server
+        - /data
+        - --console-address
+        - ":9001"
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "1Gi"
+        volumeMounts:
+        - name: minio-data
+          mountPath: /data
+      volumes:
+      - name: minio-data
+        persistentVolumeClaim:
+          claimName: minio-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-service
+  namespace: rag-system
+spec:
+  selector:
+    app: minio
+  ports:
+  - port: 9000
+    targetPort: 9000
+    name: api
+  - port: 9001
+    targetPort: 9001
+    name: console
+  type: ClusterIP

@@ -1,0 +1,322 @@
+# Grafana Alert Notification Configuration
+# Configure Grafana AlertManager for sending alert notifications
+
+# Email notification configuration example
+# Add this configuration to Grafana's AlertManager configuration
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-alertmanager-config
+  namespace: rag-system
+data:
+  alertmanager.yaml: |
+    global:
+      # SMTP configuration
+      smtp_smarthost: 'smtp.example.com:587'
+      smtp_from: 'alertmanager@example.com'
+      smtp_auth_username: 'alertmanager@example.com'
+      smtp_auth_password: 'your_smtp_password'
+
+    # Email routing configuration
+    route:
+      group_by: ['alertname', 'service']
+      group_wait: 10s
+      group_interval: 10s
+      repeat_interval: 12h
+      receiver: 'default'
+
+      # Route to different receivers based on severity level
+      routes:
+        # Critical alerts → immediate notification
+        - match:
+            severity: critical
+          receiver: 'critical-alerts'
+          continue: false
+
+        # Warning alerts → notify once per hour
+        - match:
+            severity: warning
+          receiver: 'warning-alerts'
+          group_wait: 1h
+          group_interval: 1h
+          repeat_interval: 1h
+
+    # Receiver configuration
+    receivers:
+    # Default receiver (all alerts)
+    - name: 'default'
+      email_configs:
+        - to: 'team@example.com'
+          headers:
+            Subject: '[RAG System] {{ .GroupLabels.alertname }}'
+
+    # Critical alert receiver
+    - name: 'critical-alerts'
+      email_configs:
+        - to: 'oncall@example.com'
+          headers:
+            Subject: '[CRITICAL] RAG System: {{ .GroupLabels.alertname }}'
+      # Slack notification
+      slack_configs:
+        - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+          channel: '#rag-alerts-critical'
+          title: '[CRITICAL] {{ .GroupLabels.alertname }}'
+          text: |
+            {{ range .Alerts }}
+            *Alert:* {{ .Annotations.summary }}
+            *Description:* {{ .Annotations.description }}
+            *Service:* {{ .Labels.service }}
+            *Severity:* {{ .Labels.severity }}
+            *Time:* {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+            {{ end }}
+
+    # Warning alert receiver
+    - name: 'warning-alerts'
+      email_configs:
+        - to: 'team@example.com'
+          headers:
+            Subject: '[WARNING] RAG System: {{ .GroupLabels.alertname }}'
+      # Slack notification
+      slack_configs:
+        - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+          channel: '#rag-alerts-warning'
+          title: '[WARNING] {{ .GroupLabels.alertname }}'
+          text: |
+            {{ range .Alerts }}
+            *Alert:* {{ .Annotations.summary }}
+            *Description:* {{ .Annotations.description }}
+            *Service:* {{ .Labels.service }}
+            *Severity:* {{ .Labels.severity }}
+            {{ end }}
+
+    # DingTalk notification configuration (optional)
+    - name: 'dingtalk-alerts'
+      webhook_configs:
+        - url: 'https://oapi.dingtalk.com/robot/send?access_token=YOUR_DINGTALK_TOKEN'
+          send_resolved: true
+
+---
+# Grafana Alert Channel Configuration (configured via Grafana UI)
+# Below is a JSON configuration example, can be imported in Grafana → Alerting → Contact points
+
+{
+  "name": "Email Notifications",
+  "type": "email",
+  "settings": {
+    "addresses": "team@example.com,oncall@example.com",
+    "singleEmail": false
+  },
+  "disableResolveMessage": false
+}
+
+{
+  "name": "Slack Notifications",
+  "type": "slack",
+  "settings": {
+    "url": "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK",
+    "channel": "#rag-alerts",
+    "text": "{{ .Status | toUpper }}: {{ .Labels.alertname }}\n\n{{ range .Alerts }}\n*Alert:* {{ .Annotations.summary }}\n*Description:* {{ .Annotations.description }}\n\n{{ end }}",
+    "title": "[RAG System] {{ .Status | toUpper }}: {{ .Labels.alertname }}"
+  },
+  "disableResolveMessage": false
+}
+
+{
+  "name": "DingTalk Notifications",
+  "type": "webhook",
+  "settings": {
+    "url": "https://oapi.dingtalk.com/robot/send?access_token=YOUR_DINGTALK_TOKEN",
+    "httpMethod": "POST",
+    "postContentType": "application/json",
+    "message": """
+      {
+        "msgtype": "markdown",
+        "markdown": {
+          "title": "RAG System Alert",
+          "text": "### {{ .Status | toUpper }}: {{ .Labels.alertname }}\n\n**Service:** {{ .Labels.service }}\n\n**Severity:** {{ .Labels.severity }}\n\n**Description:**\n{{ range .Alerts }}\n- {{ .Annotations.summary }}\n  {{ .Annotations.description }}\n{{ end }}"
+        }
+      }
+    """
+  },
+  "disableResolveMessage": false
+}
+
+---
+# Alert Notification Policies (Notification Policies)
+# Configure in Grafana → Alerting → Notification policies
+
+# Root level policy
+{
+  "receiver": "Email Notifications",
+  "group_by": ["alertname", "service", "severity"],
+  "group_wait": "30s",
+  "group_interval": "5m",
+  "repeat_interval": "4h",
+  "routes": [
+    # Route critical alerts separately
+    {
+      "receiver": "Slack Notifications",
+      "matchers": [
+        {
+          "name": "severity",
+          "value": "critical"
+        }
+      ],
+      "group_wait": "0s",
+      "group_interval": "1m",
+      "repeat_interval": "15m"
+    },
+    # Route warning alerts separately
+    {
+      "receiver": "Slack Notifications",
+      "matchers": [
+        {
+          "name": "severity",
+          "value": "warning"
+        }
+      ],
+      "group_wait": "5m",
+      "group_interval": "10m",
+      "repeat_interval": "1h"
+    }
+  ]
+}
+
+---
+# Alert Mute Timings (Mute Timings)
+# Used to temporarily disable alerts during maintenance
+
+{
+  "name": "Maintenance Window",
+  "time_intervals": [
+    {
+      "times": [
+        {
+          "start_time": "02:00",
+          "end_time": "04:00"
+        }
+      ],
+      "weekdays": ["sunday"]
+    }
+  ],
+  "matchers": [
+    {
+      "name": "alertname",
+      "value": ".*",
+      "isRegex": true
+    }
+  ]
+}
+
+---
+# Setup Instructions
+
+## 1. Configure Email Notifications
+
+Edit the `grafana-alertmanager-config` ConfigMap:
+
+```bash
+kubectl edit configmap grafana-alertmanager-config -n rag-system
+```
+
+Replace the following configurations:
+- `smtp_smarthost`: Your SMTP server address
+- `smtp_from`: Sender email address
+- `smtp_auth_username`: SMTP authentication username
+- `smtp_auth_password`: SMTP authentication password
+- `to`: Email address to receive alerts
+
+## 2. Configure Slack Notifications
+
+1. Create an Incoming Webhook in Slack:
+   - Go to Slack App settings
+   - Create Incoming Webhooks integration
+   - Select the channel to receive alerts (e.g., #rag-alerts)
+   - Copy the Webhook URL
+
+2. Replace the Slack Webhook URL in the configuration:
+   ```bash
+   kubectl edit configmap grafana-alertmanager-config -n rag-system
+   ```
+
+   Replace `api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'`
+
+## 3. Configure DingTalk Notifications
+
+1. Add a custom bot to the DingTalk group:
+   - Go to DingTalk group settings
+   - Add "Custom Robot"
+   - Select "Security Settings" method
+   - Copy the Webhook address
+
+2. Replace the DingTalk Webhook URL in the configuration:
+   ```bash
+   kubectl edit configmap grafana-alertmanager-config -n rag-system
+   ```
+
+   Replace `url: 'https://oapi.dingtalk.com/robot/send?access_token=YOUR_DINGTALK_TOKEN'`
+
+## 4. Apply Configuration
+
+```bash
+# Apply AlertManager configuration
+kubectl apply -f k8s/grafana-alertmanager-config.yaml
+
+# Restart Grafana Pod to apply configuration
+kubectl rollout restart deployment/grafana -n rag-system
+```
+
+## 5. Verify Alert Notifications
+
+In Grafana UI:
+
+1. Go to Alerting → Notification policies
+2. Check if notification policies are correctly configured
+3. Go to Contact points
+4. Test if each notification channel works properly
+
+## 6. Test Alerts
+
+Use testing tools to send test alerts:
+
+```bash
+# In Grafana UI
+# 1. Go to Alerting → Test rules
+# 2. Select an alert rule
+# 3. Click "Send test alert"
+# 4. Select notification channel
+# 5. Check if notification is received
+```
+
+## 7. Alert Frequency Control
+
+Adjust alert frequency based on business requirements:
+
+| Alert Level | Group Wait Time | Group Interval | Repeat Interval |
+|-------------|----------------|----------------|-----------------|
+| Critical | 0s | 1m | 15m |
+| Warning | 5m | 10m | 1h |
+| Info | 10m | 30m | 4h |
+
+## 8. Best Practices
+
+1. **Avoid Alert Storms**
+   - Set reasonable group intervals for similar alerts
+   - Configure appropriate repeat intervals
+
+2. **Prioritize Critical Alerts**
+   - Critical alerts should be notified immediately
+   - Configure multiple notification channels (email + Slack + SMS)
+
+3. **Alert Muting**
+   - Use Mute Timings during maintenance
+   - Avoid generating large amounts of alerts during maintenance
+
+4. **Alert Template Optimization**
+   - Alert messages should contain sufficient information
+   - Include: service name, severity level, description, time, etc.
+
+5. **Alert Testing**
+   - Regularly test if alert notifications work properly
+   - Verify availability of all notification channels

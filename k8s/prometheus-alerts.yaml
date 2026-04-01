@@ -1,0 +1,345 @@
+# Prometheus Alert Rules
+# Alert rules based on metrics for monitoring RAG system health
+
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: rag-alerts
+  namespace: rag-system
+  labels:
+    release: prometheus
+    app: rag-system
+spec:
+  groups:
+  - name: rag_api_alerts
+    interval: 30s
+    rules:
+    # ========================================
+    # Error Rate Alerts
+    # ========================================
+    - alert: HighErrorRate
+      expr: |
+        (
+          sum(rate(rag_request_total{status=~"5.."}[5m]))
+          /
+          sum(rate(rag_request_total[5m]))
+        ) > 0.05
+      for: 5m
+      labels:
+        severity: critical
+        service: rag-api
+      annotations:
+        summary: "RAG API High Error Rate"
+        description: "RAG API error rate exceeds 5% (current value: {{ $value | humanizePercentage }}) for 5 minutes"
+
+    - alert: VeryHighErrorRate
+      expr: |
+        (
+          sum(rate(rag_request_total{status=~"5.."}[5m]))
+          /
+          sum(rate(rag_request_total[5m]))
+        ) > 0.10
+      for: 2m
+      labels:
+        severity: critical
+        service: rag-api
+      annotations:
+        summary: "RAG API Critical Error Rate"
+        description: "RAG API error rate exceeds 10% (current value: {{ $value | humanizePercentage }}) for 2 minutes"
+
+    # ========================================
+    # Latency Alerts
+    # ========================================
+    - alert: HighRequestLatency
+      expr: |
+        histogram_quantile(0.95,
+          sum(rate(rag_request_latency_seconds_bucket[5m])) by (le, method, endpoint)
+        ) > 5.0
+      for: 10m
+      labels:
+        severity: warning
+        service: rag-api
+      annotations:
+        summary: "RAG API High Request Latency"
+        description: "RAG API P95 latency exceeds 5 seconds (current value: {{ $value | humanizeDuration }}) for 10 minutes"
+
+    - alert: VeryHighRequestLatency
+      expr: |
+        histogram_quantile(0.95,
+          sum(rate(rag_request_latency_seconds_bucket[5m])) by (le, method, endpoint)
+        ) > 10.0
+      for: 5m
+      labels:
+        severity: critical
+        service: rag-api
+      annotations:
+        summary: "RAG API Critical Request Latency"
+        description: "RAG API P95 latency exceeds 10 seconds (current value: {{ $value | humanizeDuration }}) for 5 minutes"
+
+    - alert: HighP99Latency
+      expr: |
+        histogram_quantile(0.99,
+          sum(rate(rag_request_latency_seconds_bucket[5m])) by (le, method, endpoint)
+        ) > 15.0
+      for: 5m
+      labels:
+        severity: warning
+        service: rag-api
+      annotations:
+        summary: "RAG API High P99 Latency"
+        description: "RAG API P99 latency exceeds 15 seconds (current value: {{ $value | humanizeDuration }}) for 5 minutes"
+
+    # ========================================
+    # Cache Hit Rate Alerts
+    # ========================================
+    - alert: LowCacheHitRate
+      expr: |
+        (
+          rate(rag_cache_hits_total[5m])
+          /
+          (rate(rag_cache_hits_total[5m]) + rate(rag_cache_misses_total[5m]))
+        ) < 0.30
+      for: 10m
+      labels:
+        severity: warning
+        service: rag-api
+      annotations:
+        summary: "RAG API Low Cache Hit Rate"
+        description: "RAG API cache hit rate below 30% (current value: {{ $value | humanizePercentage }}) for 10 minutes"
+
+    # ========================================
+    # Resource Usage Alerts
+    # ========================================
+    - alert: HighCPUUsage
+      expr: |
+        sum(rate(container_cpu_usage_seconds_total{namespace="rag-system",container="rag-api"}[5m]))
+        /
+        sum(kube_pod_container_resource_requests{namespace="rag-system",container="rag-api",resource="cpu"})
+        > 0.80
+      for: 10m
+      labels:
+        severity: warning
+        service: rag-api
+      annotations:
+        summary: "RAG API High CPU Usage"
+        description: "RAG API CPU usage exceeds 80% for 10 minutes"
+
+    - alert: VeryHighCPUUsage
+      expr: |
+        sum(rate(container_cpu_usage_seconds_total{namespace="rag-system",container="rag-api"}[5m]))
+        /
+        sum(kube_pod_container_resource_requests{namespace="rag-system",container="rag-api",resource="cpu"})
+        > 0.90
+      for: 5m
+      labels:
+        severity: critical
+        service: rag-api
+      annotations:
+        summary: "RAG API Critical CPU Usage"
+        description: "RAG API CPU usage exceeds 90% for 5 minutes"
+
+    - alert: HighMemoryUsage
+      expr: |
+        sum(container_memory_working_set_bytes{namespace="rag-system",container="rag-api"})
+        /
+        sum(kube_pod_container_resource_requests{namespace="rag-system",container="rag-api",resource="memory"})
+        > 0.85
+      for: 10m
+      labels:
+        severity: warning
+        service: rag-api
+      annotations:
+        summary: "RAG API High Memory Usage"
+        description: "RAG API memory usage exceeds 85% for 10 minutes"
+
+    - alert: VeryHighMemoryUsage
+      expr: |
+        sum(container_memory_working_set_bytes{namespace="rag-system",container="rag-api"})
+        /
+        sum(kube_pod_container_resource_requests{namespace="rag-system",container="rag-api",resource="memory"})
+        > 0.95
+      for: 5m
+      labels:
+        severity: critical
+        service: rag-api
+      annotations:
+        summary: "RAG API Critical Memory Usage"
+        description: "RAG API memory usage exceeds 95% for 5 minutes"
+
+    # ========================================
+    # Active Connections Alerts
+    # ========================================
+    - alert: HighActiveConnections
+      expr: rag_active_connections > 100
+      for: 5m
+      labels:
+        severity: warning
+        service: rag-api
+      annotations:
+        summary: "RAG API High Active Connections"
+        description: "RAG API active connections exceed 100 (current value: {{ $value }}) for 5 minutes"
+
+    - alert: VeryHighActiveConnections
+      expr: rag_active_connections > 500
+      for: 2m
+      labels:
+        severity: critical
+        service: rag-api
+      annotations:
+        summary: "RAG API Critical Active Connections"
+        description: "RAG API active connections exceed 500 (current value: {{ $value }}) for 2 minutes"
+
+    # ========================================
+    # Query Related Alerts
+    # ========================================
+    - alert: LowQuerySuccessRate
+      expr: |
+        (
+          sum(rate(rag_query_total{has_results="false"}[5m]))
+          /
+          sum(rate(rag_query_total[5m]))
+        ) > 0.50
+      for: 10m
+      labels:
+        severity: warning
+        service: rag-api
+      annotations:
+        summary: "RAG API High Query No Result Rate"
+        description: "RAG API query no result rate exceeds 50% (current value: {{ $value | humanizePercentage }}) for 10 minutes"
+
+    - alert: LowCacheQueryRate
+      expr: |
+        (
+          sum(rate(rag_query_total{cached="false"}[5m]))
+          /
+          sum(rate(rag_query_total[5m]))
+        ) > 0.80
+      for: 15m
+      labels:
+        severity: warning
+        service: rag-api
+      annotations:
+        summary: "RAG API Low Cache Query Rate"
+        description: "RAG API cache query rate below 20% (current value: {{ $value | humanizePercentage }}) for 15 minutes"
+
+    # ========================================
+    # Vector Store Alerts
+    # ========================================
+    - alert: VectorStoreEmpty
+      expr: rag_vector_store_size < 100
+      for: 30m
+      labels:
+        severity: warning
+        service: rag-api
+      annotations:
+        summary: "RAG API Insufficient Vector Store Data"
+        description: "RAG API vector store contains less than 100 vectors (current value: {{ $value }}) for 30 minutes"
+
+    # ========================================
+    # Document Operation Alerts
+    # ========================================
+    - alert: HighDocumentUploadFailureRate
+      expr: |
+        (
+          sum(rate(rag_document_operations_total{operation="upload",status="failed"}[5m]))
+          /
+          sum(rate(rag_document_operations_total{operation="upload"}[5m]))
+        ) > 0.10
+      for: 10m
+      labels:
+        severity: warning
+        service: rag-api
+      annotations:
+        summary: "RAG API High Document Upload Failure Rate"
+        description: "RAG API document upload failure rate exceeds 10% for 10 minutes"
+
+    # ========================================
+    # Pod Health Alerts
+    # ========================================
+    - alert: PodNotReady
+      expr: |
+        sum(kube_pod_status_ready{namespace="rag-system",condition="true"})
+        /
+        sum(kube_pod_status_ready{namespace="rag-system"})
+        < 0.8
+      for: 5m
+      labels:
+        severity: critical
+        service: rag-api
+      annotations:
+        summary: "RAG API Low Pod Ready Rate"
+        description: "RAG API Pod ready rate below 80% for 5 minutes"
+
+    - alert: PodRestartTooFrequently
+      expr: |
+        increase(kube_pod_container_status_restarts_total{namespace="rag-system",container="rag-api"}[1h]) > 5
+      for: 10m
+      labels:
+        severity: warning
+        service: rag-api
+      annotations:
+        summary: "RAG API Pod Frequent Restarts"
+        description: "RAG API Pod has restarted more than 5 times in the past hour"
+
+  # ========================================
+  # Database Alert Group
+  # ========================================
+  - name: rag_database_alerts
+    interval: 1m
+    rules:
+    - alert: PostgreSQLDown
+      expr: up{job="postgres"} == 0
+      for: 2m
+      labels:
+        severity: critical
+        service: postgres
+      annotations:
+        summary: "PostgreSQL Service Down"
+        description: "PostgreSQL service has been unavailable for 2 minutes"
+
+    - alert: RedisDown
+      expr: up{job="redis"} == 0
+      for: 2m
+      labels:
+        severity: critical
+        service: redis
+      annotations:
+        summary: "Redis Service Down"
+        description: "Redis service has been unavailable for 2 minutes"
+
+  # ========================================
+  # Milvus Alert Group
+  # ========================================
+  - name: rag_milvus_alerts
+    interval: 1m
+    rules:
+    - alert: MilvusDown
+      expr: up{job="milvus"} == 0
+      for: 2m
+      labels:
+        severity: critical
+        service: milvus
+      annotations:
+        summary: "Milvus Service Down"
+        description: "Milvus service has been unavailable for 2 minutes"
+
+  # ========================================
+  # Storage Alert Group
+  # ========================================
+  - name: rag_storage_alerts
+    interval: 5m
+    rules:
+    - alert: PVCCapacityCritical
+      expr: |
+        (
+          kubelet_volume_stats_used_bytes{namespace="rag-system"}
+          /
+          kubelet_volume_stats_capacity_bytes{namespace="rag-system"}
+        ) > 0.90
+      for: 10m
+      labels:
+        severity: warning
+        service: storage
+      annotations:
+        summary: "PVC Storage Capacity Critical"
+        description: "PVC {{ $labels.persistentvolumeclaim }} usage exceeds 90% (current value: {{ $value | humanizePercentage }})"

@@ -1,0 +1,128 @@
+# HPA Autoscaling Configuration
+# Automatically adjusts replica count based on CPU and memory usage
+
+# API Version
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: rag-api-hpa
+  namespace: rag-system
+  labels:
+    app: rag-api
+spec:
+  # Scaling target
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: rag-api
+
+  # Minimum number of replicas
+  minReplicas: 2
+
+  # Maximum number of replicas
+  maxReplicas: 10
+
+  # Scaling metrics
+  metrics:
+  # CPU utilization metric
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+
+  # Memory utilization metric
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+  # Scaling behavior
+  behavior:
+    # Scale up policy (increasing from 2 to more replicas)
+    scaleUp:
+      # Scale up stabilization window (seconds)
+      stabilizationWindowSeconds: 60
+      # Scale up policy selection (allow maximum scale up)
+      policies:
+      - type: Percent
+        value: 100        # Increase by up to 100% of replicas each time
+        periodSeconds: 30  # Execute once within 30 seconds
+      - type: Pods
+        value: 2          # Or increase by up to 2 replicas each time
+        periodSeconds: 30
+      selectPolicy: Max    # Select the maximum scale up policy
+
+    # Scale down policy (reducing from high to low replica count)
+    scaleDown:
+      # Scale down stabilization window (seconds) - longer window prevents frequent scaling fluctuations
+      stabilizationWindowSeconds: 300  # 5 minutes
+      # Scale down policy selection (allow maximum scale down)
+      policies:
+      - type: Percent
+        value: 50         # Reduce by up to 50% of replicas each time
+        periodSeconds: 60  # Execute once within 60 seconds
+      - type: Pods
+        value: 1          # Or reduce by up to 1 replica each time
+        periodSeconds: 60
+      selectPolicy: Min    # Select the minimum scale down policy (more conservative)
+---
+# HPA Reserved Replicas (Optional)
+# Reserve minimum replica count during peak traffic periods
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: rag-api-hpa-high-traffic
+  namespace: rag-system
+  labels:
+    app: rag-api
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: rag-api
+
+  # Replica count for high traffic mode
+  minReplicas: 5
+  maxReplicas: 20
+
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 60
+
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 70
+
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+      - type: Percent
+        value: 200        # More aggressive scale up in high traffic mode
+        periodSeconds: 15
+      - type: Pods
+        value: 4
+        periodSeconds: 15
+      selectPolicy: Max
+
+    scaleDown:
+      stabilizationWindowSeconds: 600  # Longer scale down window
+      policies:
+      - type: Percent
+        value: 30
+        periodSeconds: 90
+      - type: Pods
+        value: 1
+        periodSeconds: 90
+      selectPolicy: Min
