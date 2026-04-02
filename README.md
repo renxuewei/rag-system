@@ -17,6 +17,14 @@ Enterprise-grade Retrieval-Augmented Generation (RAG) system built with FastAPI,
 - **Observability** — Prometheus metrics, structured logging, and audit trail for all operations
 - **Kubernetes Ready** — Full K8s manifests with HPA autoscaling, ConfigMaps, Secrets, and monitoring stack
 
+## UI
+
+<div align="center">
+  <img src="./assets/chat.png" alt="chat" width="80%">
+  <img src="./assets/model-management.png" alt="model" width="80%">
+  <img src="./assets/doc-management.png" alt="doc" width="80%">
+</div>
+
 ## Architecture
 
 ```
