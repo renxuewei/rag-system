@@ -34,28 +34,28 @@ Enterprise-grade Retrieval-Augmented Generation (RAG) system built with FastAPI,
                              │ HTTP / SSE
 ┌────────────────────────────▼────────────────────────────────────┐
 │                     FastAPI (RAG API)                           │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌───────────────────┐ │
-│  │   Auth   │ │  Users   │ │Documents │ │  Conversations    │ │
-│  └──────────┘ └──────────┘ └──────────┘ └───────────────────┘ │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌───────────────────┐ │
-│  │  Query   │ │  Review  │ │ Feedback │ │  Model Config     │ │
-│  └──────────┘ └──────────┘ └──────────┘ └───────────────────┘ │
-└────────────┬──────────────────────────┬────────────────────────┘
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌───────────────────┐   │
+│  │   Auth   │ │  Users   │ │Documents │ │  Conversations    │   │
+│  └──────────┘ └──────────┘ └──────────┘ └───────────────────┘   │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌───────────────────┐   │
+│  │  Query   │ │  Review  │ │ Feedback │ │  Model Config     │   │
+│  └──────────┘ └──────────┘ └──────────┘ └───────────────────┘   │
+└────────────┬──────────────────────────┬─────────────────────────┘
              │                          │
 ┌────────────▼──────────┐  ┌────────────▼────────────────────────┐
 │    Core Services      │  │        External Services            │
-│ ┌───────────────────┐ │  │  ┌──────────────────────────────┐  │
-│ │ Document Processor│ │  │  │  Milvus (Vector DB)          │  │
-│ │ Embedding Service │ │  │  │  PostgreSQL (Metadata)       │  │
-│ │ Retriever (Hybrid)│ │  │  │  Redis (Cache)               │  │
-│ │ Reranker          │ │  │  │  MinIO (Object Storage)      │  │
-│ │ LLM Service       │ │  │  │  LLM API (GLM-4 / OpenAI)    │  │
-│ │ Stream Service    │ │  │  └──────────────────────────────┘  │
-│ │ Cache Service     │ │                                      │
-│ │ PII Detector      │ │                                      │
-│ │ Sensitive Filter  │ │                                      │
-│ └───────────────────┘ │                                      │
-└───────────────────────┘                                      │
+│ ┌───────────────────┐ │  │  ┌──────────────────────────────┐   │
+│ │ Document Processor│ │  │  │  Milvus (Vector DB)          │   │
+│ │ Embedding Service │ │  │  │  PostgreSQL (Metadata)       │   │
+│ │ Retriever (Hybrid)│ │  │  │  Redis (Cache)               │   │
+│ │ Reranker          │ │  │  │  MinIO (Object Storage)      │   │
+│ │ LLM Service       │ │  │  │  LLM API (GLM-4 / OpenAI)    │   │
+│ │ Stream Service    │ │  │  │                              │   │
+│ │ Cache Service     │ │  │  │                              │   │
+│ │ PII Detector      │ │  │  │                              │   │
+│ │ Sensitive Filter  │ │  │  │                              │   │
+│ └───────────────────┘ │  │  └──────────────────────────────┘   │
+└───────────────────────┘  └─────────────────────────────────────┘
 ```
 
 ## Tech Stack
@@ -130,156 +130,6 @@ Server will be available at `http://localhost:8000`.
 Interactive API docs are available at:
 - Swagger UI: `http://localhost:8000/docs`
 - ReDoc: `http://localhost:8000/redoc`
-
-## API Endpoints
-
-### Authentication
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/auth/login` | User login, returns JWT token |
-| `GET` | `/api/auth/verify` | Verify token validity |
-
-### User Management
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/users` | List all users (tenant-scoped) |
-| `POST` | `/api/users` | Create user (admin only) |
-| `GET` | `/api/users/{user_id}` | Get user details |
-| `PUT` | `/api/users/{user_id}` | Update user |
-| `DELETE` | `/api/users/{user_id}` | Delete user |
-| `POST` | `/api/users/{user_id}/reset-password` | Reset password |
-| `GET` | `/api/roles` | List available roles |
-
-### Knowledge Base Query
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/query` | Standard query (returns answer + sources) |
-| `POST` | `/api/query/stream` | Streaming query (SSE) |
-
-### Document Management
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/documents` | Upload document (PDF/DOCX/MD/TXT) |
-| `GET` | `/api/documents` | List uploaded documents |
-| `DELETE` | `/api/documents/{doc_id}` | Delete document |
-
-### Category Management
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/categories` | Create category |
-| `GET` | `/api/categories` | List categories |
-| `GET` | `/api/categories/{category_id}` | Get category details |
-| `PUT` | `/api/categories/{category_id}` | Update category |
-| `DELETE` | `/api/categories/{category_id}` | Delete category |
-| `POST` | `/api/documents/{doc_id}/categories` | Assign category to document |
-| `DELETE` | `/api/documents/{doc_id}/categories/{category_id}` | Remove category from document |
-
-### Review Workflow
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/reviews` | Create review |
-| `GET` | `/api/reviews` | List reviews |
-| `PUT` | `/api/reviews/{review_id}` | Update review status |
-| `POST` | `/api/reviews/batch` | Batch update reviews |
-| `POST` | `/api/review-tasks` | Create review task |
-| `GET` | `/api/review-tasks` | List review tasks |
-
-### Feedback
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/feedback` | Submit answer feedback |
-| `GET` | `/api/feedback/stats` | Get feedback statistics |
-| `GET` | `/api/feedback/low-rating` | Get low-rating feedback list |
-| `GET` | `/api/feedback/trend` | Get feedback trend data |
-
-### Conversations
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/conversations` | Create conversation |
-| `GET` | `/api/conversations` | List user conversations |
-| `GET` | `/api/conversations/{conv_id}` | Get conversation details |
-| `GET` | `/api/conversations/{conv_id}/messages` | Get conversation messages |
-| `POST` | `/api/conversations/{conv_id}/messages` | Add message to conversation |
-| `DELETE` | `/api/conversations/{conv_id}` | Delete conversation |
-| `PUT` | `/api/conversations/{conv_id}/archive` | Archive/unarchive conversation |
-| `PUT` | `/api/conversations/{conv_id}/tags` | Update conversation tags |
-
-### Model Configuration
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/model-configs` | List model configurations |
-| `POST` | `/api/model-configs` | Create model configuration |
-| `GET` | `/api/model-configs/{config_id}` | Get configuration details |
-| `PUT` | `/api/model-configs/{config_id}` | Update configuration |
-| `DELETE` | `/api/model-configs/{config_id}` | Delete configuration |
-| `POST` | `/api/model-configs/{config_id}/test` | Test model connection |
-
-### System
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/stats` | System statistics |
-| `GET` | `/api/health` | Health check |
-| `GET` | `/health` | Service health check |
-| `GET` | `/metrics` | Prometheus metrics |
-| `GET` | `/api/audit-logs` | Audit log query |
-
-## Project Structure
-
-```
-rag-system/
-├── backend/
-│   ├── app/
-│   │   ├── main.py                 # FastAPI application entry point
-│   │   ├── config.py               # Configuration management
-│   │   ├── routers/
-│   │   │   └── api.py              # All API route handlers (49 endpoints)
-│   │   ├── services/
-│   │   │   ├── document_processor.py   # Document parsing & chunking
-│   │   │   ├── embeddings.py           # Text embedding service
-│   │   │   ├── vector_store.py         # Milvus vector operations
-│   │   │   ├── retriever.py            # Hybrid retrieval (BM25 + Vector + RRF)
-│   │   │   ├── reranker.py             # Cross-encoder reranking
-│   │   │   ├── llm.py                  # LLM inference service
-│   │   │   ├── llm_router.py           # Multi-model routing
-│   │   │   ├── stream.py               # Streaming response generator
-│   │   │   ├── cache.py                # Redis cache service
-│   │   │   ├── answer_cache.py         # Semantic answer caching
-│   │   │   ├── cache_warmup.py         # Startup cache warmup
-│   │   │   ├── metadata.py             # PostgreSQL metadata & user management
-│   │   │   ├── storage.py              # MinIO object storage
-│   │   │   ├── conversation.py         # Chat history management
-│   │   │   ├── review.py               # Document review workflow
-│   │   │   ├── feedback.py             # User feedback collection
-│   │   │   ├── model_config_service.py # Dynamic model configuration
-│   │   │   ├── prompts.py              # Prompt templates
-│   │   │   ├── tenant.py               # Multi-tenant context
-│   │   │   ├── pii_detector.py         # PII detection
-│   │   │   ├── sensitive_filter.py     # Sensitive content filtering
-│   │   │   ├── deduplication.py        # Document deduplication
-│   │   │   └── ingestion/
-│   │   │       ├── api_fetcher.py      # REST API data ingestion
-│   │   │       ├── crawler.py          # Web crawler ingestion
-│   │   │       ├── db_sync.py          # Database sync ingestion
-│   │   │       └── base.py             # Base ingestion class
-│   │   └── utils/
-│   │       ├── auth.py                 # JWT authentication & RBAC
-│   │       ├── validators.py           # Input validation
-│   │       ├── rate_limit.py           # Rate limiting
-│   │       ├── metrics.py              # Prometheus metrics
-│   │       └── audit.py                # Audit logging
-│   ├── requirements.txt
-│   └── pyproject.toml
-├── k8s/
-│   ├── configmap.yaml                  # Application configuration
-│   ├── secrets.yaml                    # Sensitive credentials
-│   ├── hpa.yaml                        # Horizontal Pod Autoscaler
-│   ├── prometheus-alerts.yaml          # Prometheus alerting rules
-│   ├── grafana-alertmanager-config.yaml # Alertmanager routing
-│   └── deployments/
-│       └── milvus.yaml                 # Milvus deployment
-├── .env.example                        # Environment template
-└── README.md
-```
 
 ## Kubernetes Deployment
 
